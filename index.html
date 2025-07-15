@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>7309 公車到站資訊</title>
+  <style>
+    body { background: #222; color: #fff; font-family: Arial, sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;}
+    .container { text-align:center; }
+    h1 { font-size:2.5rem; margin-bottom:0.5rem; }
+    h2 { font-size:2rem; margin:0.3rem 0; }
+    h3 { font-size:1.5rem; margin-bottom:1rem; }
+    .bus-entry { margin:0.5rem 0; font-size:1.8rem; }
+    footer { margin-top:1rem; font-size:1rem; color:#aaa; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>公車到站顯示器</h1>
+    <h2>📍 嘉義市「福樂新村」站</h2>
+    <h3>🚌 7309（往嘉義市區）</h3>
+    <div id="bus-info">正在讀取資料...</div>
+    <footer>⟳ 資料每 30 秒自動更新</footer>
+  </div>
+
+  <script>
+    const tokenUrl = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token";
+    const clientId = "s11130026-e58f49d5-2bdd-4a66";
+    const clientSecret = "5f83b030-6fd6-4f8b-8c05-b85c517ef157";
+
+    async function getToken() {
+      const res = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret })
+      });
+      return res.json().then(data => data.access_token);
+    }
+
+    async function getBusData() {
+      const token = await getToken();
+      const res = await fetch("https://tdx.transportdata.tw/api/basic/v2/Bus/EstimatedTimeOfArrival/City/Chiayi/7309?$format=JSON", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      const items = data.filter(v => v.StopName.Zh_tw === "福樂新村" && v.Direction === 1);
+      const container = document.getElementById("bus-info");
+      if (items.length === 0) {
+        container.innerHTML = "<p>目前沒有預估到站資料</p>";
+      } else {
+        container.innerHTML = items.map(v => {
+          const plate = v.PlateNumb || "—";
+          const sec = v.EstimateTime;
+          const min = sec ? Math.ceil(sec / 60) : null;
+          const eta = min ? `${min} 分鐘` : "進站中";
+          return `<div class="bus-entry">🚌 ${plate} • 預估到站：<strong>${eta}</strong></div>`;
+        }).join("");
+      }
+    }
+
+    getBusData();
+    setInterval(getBusData, 30000);
+  </script>
+</body>
+</html>
